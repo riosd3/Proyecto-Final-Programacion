@@ -1,0 +1,5 @@
+Paginas web de las que se extraera informacion:
+1. metacritic.com
+2. steamcharts.com
+3. pricegrabber.com # para obtener informacion de 
+4. https://www.pricecharting.com/es/category/video-games ???
