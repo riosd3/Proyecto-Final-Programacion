@@ -1,0 +1,15 @@
+Ventana Principal
+  Scrapers -> MenuButton (Carga la interface del scraper selecionado)
+  Acerca de -> Informativo
+1. Metacritic.com
+  Filtro de fecha -> DateEntry solo el a;o
+  Genero de videojuego -> CheckButton
+  Plataforma -> CheckButton
+2. PriceCharting.com
+  Marca -> CheckButton
+  Consola -> CheckButton
+3. PriceGrabber.com
+  Precio de un juego por medio de -> EntryBox
+  Consolas de video juego -> CheckButton
+  Accesorios de videojuegos -> CheckButton
+  Otros -> CheckButton
