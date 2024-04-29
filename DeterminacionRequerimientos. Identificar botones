@@ -9,7 +9,10 @@ Ventana Principal
   Marca -> CheckButton
   Consola -> CheckButton
 3. PriceGrabber.com
-  Precio de un juego por medio de -> EntryBox
+  Nombre del juego por medio de -> EntryBox
   Consolas de video juego -> CheckButton
   Accesorios de videojuegos -> CheckButton
   Otros -> CheckButton
+4. SteamCharts.com
+  Nombre del juego por medio de -> EntryBox
+
