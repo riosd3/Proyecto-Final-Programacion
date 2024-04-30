@@ -1,0 +1,57 @@
+MetaCritic
+Requisito: Que la pagina no este filtrada
+
+1. Nombre de juegos
+2. Evaluacion de juegadores
+3. Plataformas
+4. Desarrollador
+5. Compa;ia due;a -> (Publisher)
+6. Generos de videojuegos
+#7. MetaRating (rating de la pagina?)
+Estructura: {
+            "gamename": [],
+            "platform": [],
+            "releasedate": [],
+            "metarating": [],
+            "userrating": [],
+            "developer": [],
+            "publisher": [],
+            "genre": []
+        }
+
+
+SteamCharts # Funciona en conjueto con MetaCritic (brinda una lista de nombres de juegos) o con una lista de muestra con nombres de juegos
+Requisito: Que la pagina no este filtrada
+Una lista de nombres de juegos de muestra
+1. Numero de jugadores actualmente jugando
+2. Promedio de jugadores en los ultimos 30 dias
+3. Total de canancias en los ultimos 30 dias
+4. Porcentaje de ganancias en los ultimos 30 dias
+Estructura: {
+		"gamename":[], # emparejado con metacritic
+		"playersplaying":[],
+		"mouthaverageplayers":[],
+		"mouthaveragegain:[],
+		"mouthaveragegainpercent":[] # puede ser omitido y calculado
+	}
+# Una vez que un juego es identificado es posible obtener un historigrama de sus ganacias y jugadores
+PriceGrabber # Funciona en conjuto con MetaCritic o con alguna lista de muestra con nombres de juegos
+Requisitos: Que la pagina no este filtrada
+Lista una lista de nombres de juegos muestra
+1. Nombre del juego
+2. Precio
+Estructura: {
+		"gamename":[], # emparejado con metacritic, importante crear sistema de validacion para descartar resultados que no son videojuegos / Utilizar la plataforma en la busqueda
+		"price":[]
+}
+PriceCharting # En conjuento con metaCritic o una lista de muestra 
+Requisitos: Que la pagina no este filtrada
+Lista de muestra
+1. Nombre del juego
+2. Precio suelto
+3. Precio CIB
+4. Precio nuevo
+Estructura: {
+		"gamename":[], # emparejado con metacritic, validar que sea un videojuego
+		"price":[]
+}
