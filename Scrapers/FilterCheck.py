@@ -76,7 +76,7 @@ class VerifyFirewall:
             print(f"{init_err_msg} : {e.message}")
         return cls.gaming_information_web_sites
 
-
+pagesAvailability = VerifyFirewall.verify()
 if __name__ == "__main__":
     r = VerifyFirewall.verify()
     print(r)
