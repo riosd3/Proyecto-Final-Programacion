@@ -61,7 +61,7 @@ class MetaCritic:
                         self.add_game(scrap_url + f"&page={i}")
                 else:
                     if limit > max_found:
-                        limit = pageLimit
+                        limit = pageLimits
                     for i in range(1, limit + 1):
                         self.add_game(scrap_url + f"&page={i}")
             else:
@@ -170,10 +170,6 @@ class MetaCritic:
             DataFrame(self.data).to_csv(join_path(environ["USERPROFILE"], "Desktop/scrap.test.csv"))
         else:
             print("No data in grabbed.")
-
-
-
-
 
 if __name__ == "__main__":
     meta = MetaCritic()
