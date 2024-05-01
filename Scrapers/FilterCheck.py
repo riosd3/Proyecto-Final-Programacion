@@ -48,7 +48,7 @@ class VerifyFirewall:
         try:
             with open(pages_json, "r") as f:
                 cls.gaming_information_web_sites = json.loads(f.read())
-        except CannotLoadPages:
+        except:
             raise ErrorReadingJSON(pages_json)
 
         def mark_filtered(web_name):
