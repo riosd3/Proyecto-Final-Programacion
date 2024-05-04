@@ -1,12 +1,9 @@
-from sys import exit as sys_exit
 from fake_useragent import UserAgent
 from time import sleep
 from bs4 import BeautifulSoup as bs
 import html5lib
 from selenium import webdriver
 from pandas import DataFrame
-from selenium.webdriver.common.by import By
-from requests import get, Session
 from os import environ
 from os.path import join as join_path
 from FilterCheck import pagesAvailability
@@ -27,11 +24,12 @@ class MetaCritic:
         if not pagesAvailability["metacritic"]["filtered"]:
             self.main_url = pagesAvailability["metacritic"]["main_url"]
             options = webdriver.ChromeOptions()
-            # options.add_argument("--headless")
+            options.add_argument("--headless")
             options.add_argument(f"--useragent={self.useragent.random}")
             self.browser = webdriver.Chrome(options=options)
+            self.inst_status = True
         else:
-            self.attribute = "test"
+            self.inst_status = False
 
 
     def scrap(self, limit=3):
@@ -169,7 +167,7 @@ class MetaCritic:
         if self.data:
             DataFrame(self.data).to_csv(join_path(environ["USERPROFILE"], "Desktop/scrap.test.csv"))
         else:
-            print("No data in grabbed.")
+            print("No data grabbed.")
 
 if __name__ == "__main__":
     meta = MetaCritic()
