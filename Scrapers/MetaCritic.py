@@ -1,12 +1,15 @@
 from fake_useragent import UserAgent
 from time import sleep
 from bs4 import BeautifulSoup as bs
+from concurrent.futures import ThreadPoolExecutor
+from tkinter.filedialog import asksaveasfilename
 import html5lib
 from selenium import webdriver
 from pandas import DataFrame
 from os import environ
 from os.path import join as join_path
 from FilterCheck import pagesAvailability
+from threading import Thread
 def debug(t):print(t);input("<press enter>")
 class MetaCritic:
     useragent = UserAgent()
@@ -30,42 +33,41 @@ class MetaCritic:
             self.inst_status = True
         else:
             self.inst_status = False
+        self.getPageFilters()
 
 
-    def scrap(self, limit=3):
+    def scrap(self, limit_pages = 0, filters=None, verify = False, date_range = (1958, 2024)):
         scrap_url = self.main_url + "/browse/game"
-        scrap_url = f"{scrap_url}/?releaseYearMin={self.filterDate[0]}&releaseMaxYear={self.filterDate[1]}"
-        for platform, filter in self.filters.items():
-            if filter["selected"] == True:
-                scrap_url += filter["added_url"]
+        scrap_url = f"{scrap_url}/?releaseYearMin={date_range[0]}&releaseMaxYear={date_range[1]}"
+        for info in filters["Platforms"]:
+            scrap_url += info["added_url"]
+        for info in filters["Release Type"]:
+            scrap_url += info["added_url"]
+        for info in filters["Genre"]:
+            scrap_url += info["added_url"]
+        print(scrap_url + "&page=1")
         self.browser.get(scrap_url + "&page=1")
+        sleep(1)
         try:
-            pageLimits = bs(self.browser.page_source, "html5lib").find_all("span", {"class":"c-navigationPagination_itemButtonContent u-flexbox u-flexbox-alignCenter u-flexbox-justifyCenter"})
+            pageLimits = int(bs(self.browser.page_source, "html5lib").find("span", {"class":"c-finderControls_totalText g-color-gray50"}).get_text().strip().split(" ")[0].replace(",", ""))
         except:
-            print("No results found for this filter combination")
+            return 0#print("No results found for this filter combination")
         else:
-            max_found = 0
-            for page_number in pageLimits:
-                try:
-                    testing = page_number.get_text().strip()
-                    testing = int(testing)
-                except:
-                    continue
-                else:
-                    max_found = testing if testing > max_found else max_found
-            if max_found > 0:
-                if not limit:
-                    for i in range(1, max_found + 1):
-                        self.add_game(scrap_url + f"&page={i}")
-                else:
-                    if limit > max_found:
-                        limit = pageLimits
-                    for i in range(1, limit + 1):
-                        self.add_game(scrap_url + f"&page={i}")
+            if verify:
+                return pageLimits
             else:
-                print("No results...")
+                self.scraper_counter_total = pageLimits
+                self.scraper_counter = 0
+                page_num = 1
+                while self.scraper_counter < limit_pages:
+                    page = scrap_url + f"&page={page_num}"
+                    self.add_game(page)
+                    page_num += 1
+
+
     # add_game is used by scrap to append a game to self.data
     def add_game(self, url):
+        print("Starting scrap for: ", url)
         def getInformation(blockinfo):
             for productInfo in blockinfo:
                 game_name_span = productInfo.find("div", {"class": "c-finderProductCard_title"}).find_all("span")[1]
@@ -106,7 +108,8 @@ class MetaCritic:
                     developer = developers if developers else "N/A"
                     publisher = publisher if publisher else "N/A"
                     gamegenre = gamegenre if gamegenre else "N/A"
-                print(f"Adding ---> {game_name}, {game_date}, {rating[0]}, {rating[1]}, {g_platform_concatenated}, {gamegenre}, {publisher}, {developer}")
+                self.info_message = f"Adding ---> {game_name}, {game_date}, {rating[0]}, {rating[1]}, {g_platform_concatenated}, {gamegenre}, {publisher}, {developer}\n{self.scraper_counter + 1} of {self.scraper_counter_total}\n"
+                print(self.info_message)
                 self.data["gamename"].append(game_name)
                 self.data["releasedate"].append(game_date)
                 self.data["metarating"].append(rating[0])
@@ -115,10 +118,14 @@ class MetaCritic:
                 self.data["genre"].append(gamegenre)
                 self.data["publisher"].append(publisher)
                 self.data["developer"].append(developer)
+                self.scraper_counter += 1
 
         self.browser.get(url)
-        productBlockInformation = bs(self.browser.page_source, "html.parser").find_all("div", { "class": "c-finderProductCard c-finderProductCard-game"})
-        getInformation(productBlockInformation)
+        with ThreadPoolExecutor(max_workers=100) as executor:
+            productBlockInformation = bs(self.browser.page_source, "html.parser").find_all("div", {"class": "c-finderProductCard c-finderProductCard-game"})
+            executor.submit(getInformation, productBlockInformation)
+        #productBlockInformation = bs(self.browser.page_source, "html.parser").find_all("div", { "class": "c-finderProductCard c-finderProductCard-game"})
+        #getInformation(productBlockInformation)
 
 
     def getPageFilters(self):
@@ -148,11 +155,11 @@ class MetaCritic:
                     for original, replacement in replacements.items():
                         formated = formated.replace(original, replacement).strip().lower()
                     print(f"Trying to add {prefix + formated} to {filterTitle} from {valueName}")
-                    self.filters[filterTitle] = {"name":valueName, "added_url":prefix + formated, "selected":False}
+                    self.filters[filterTitle.strip()].append({"name":valueName.strip(), "added_url":prefix + formated, "selected":False})
 
         for filter in all_filters:
             filterTitle = bs(str(filter), "html5lib").find("h4").get_text().strip()
-            self.filters[filterTitle] = {}
+            self.filters[filterTitle] = []
             filter_values = bs(str(filter), "html5lib").find_all("div", {"class":"c-filterInput_content_row u-flexbox"})
             if filterTitle.lower() == "platforms":
                 format_text_filter(filter_values, filterTitle=filterTitle, prefix="&platform=")
@@ -160,15 +167,22 @@ class MetaCritic:
                 format_text_filter(filter_values, filterTitle=filterTitle, prefix="&genre=")
             elif filterTitle.lower() == "release type":
                 format_text_filter(filter_values, filterTitle=filterTitle, prefix="&releaseType=")
-        self.scrap()
+    def getFilters(self):
+        return self.filters
+    def getYearFilter(self):
+        return self.filterDate
 
 
-    def saveData(self):
+    def save_data(self):
         if self.data:
-            DataFrame(self.data).to_csv(join_path(environ["USERPROFILE"], "Desktop/scrap.test.csv"))
+            file_path = asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+            if file_path:
+                DataFrame(self.data).to_csv(file_path, index=False)
+                print("Data saved successfully.")
         else:
             print("No data grabbed.")
 
 if __name__ == "__main__":
     meta = MetaCritic()
-    meta.getPageFilters()
+    print(meta.getFilters())
+    meta.scrap()
