@@ -63,7 +63,10 @@ class VerifyFirewall:
                     else:
                         if r.status_code == 404 or r.status_code == 403: mark_filtered(web_name=web_name)
                     finally:
-                        if r: r.close()
+                        try:
+                            if r: r.close()
+                        except:
+                            pass
         validation = [i["filtered"] for i in cls.gaming_information_web_sites.copy().values()]
         try:
             if all(validation):
