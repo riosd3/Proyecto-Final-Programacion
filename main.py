@@ -8,8 +8,10 @@ from mainSettings import random_image_path
 from sys import path
 path.append("Scrapers")
 from threading import Thread
+from sys import exit as sys_exit
 
-
+global scrapers_threads
+scrapers_threads = []
 class ScraperUserInterface:
     def __init__(self):
         self.root = Tk()
@@ -117,6 +119,7 @@ class ScraperUserInterface:
                     informational_message.start()
                     scrap_lambda = lambda: meta.scrap(filters=tmp, date_range=(int(self.min_year_filter_value.get()), int(self.max_year_filter_value.get())),limit_pages=max_pages_found)
                     scrap_thread = Thread(target=scrap_lambda)
+                    scrapers_threads.append(scrap_thread)
                     scrap_thread.start()
                     #meta.scrap(filters=tmp, date_range=(int(self.min_year_filter_value.get()), int(self.max_year_filter_value.get())), limit_pages=max_pages_found)
         def save_scraped():
@@ -294,13 +297,10 @@ class ScraperUserInterface:
         except:
             pass
         try:
-            self.header.pack_forget()
+            self.header.destroy()
+            self.body.destroy()
         except:
-            print("Could not unpack load_main main")
-        try:
-            self.body.pack_forget()
-        except:
-            print("Could not unpack load_main body")
+            pass
         if "metacritic" == scraper_name:
             try:
                 for frame in meta_frames:
@@ -319,9 +319,17 @@ class ScraperUserInterface:
         print("Loading steamcharts")
     def scraper_gui_exit(self):
         # if there are cached data must be modify the message informing that
-        r = askyesno("Salir", "Estas seguro que deseas salir del programa?")
-        if r:
-            self.root.destroy()
+        if len(scrapers_threads) > 0:
+            showerror("Scrapers corriendo", "Tienes scrapers corriendo en segundo plano. Considera guardar la informacion antes de forzar la salida")
+            r = askyesno("Forzar salida", "Quieres forzar la salida?")
+            if r:
+                self.root.destroy()
+                sys_exit(0)
+        else:
+            r = askyesno("Salir", "Estas seguro que deseas salir del programa?")
+            if r:
+                self.root.destroy()
+                sys_exit(0)
     def scraperObject(self, scraper_name):
         for scraper in self.scrapers:
             if (type(scraper).__name__).lower() == scraper_name:
@@ -353,6 +361,11 @@ class ScraperUserInterface:
         self.body_frame.pack()
         self.body = Label(self.body_frame)
         self.body.pack()
+        logo_path = random_image_path("Logos")
+        self.logo_obj = PhotoImage(file = logo_path)
+        logo_background = Label(self.body, image = self.logo_obj)
+        logo_background.pack()
+
         # Main footer
         self.footer_frame = Label(self.main_frame)
         self.footer_frame.pack()
@@ -380,8 +393,6 @@ class ScraperUserInterface:
         self.import_thread = Thread(target=self.import_scrapers)
         self.import_thread.start()
 
-class MetaCriticInterface:
-    pass
 
 if __name__ == "__main__":
     a = ScraperUserInterface()
