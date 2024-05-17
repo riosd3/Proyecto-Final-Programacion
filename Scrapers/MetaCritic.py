@@ -36,7 +36,7 @@ class MetaCritic:
         self.getPageFilters()
 
 
-    def scrap(self, limit_pages = 0, filters=None, verify = False, date_range = (1958, 2024)):
+    def scrap(self, limit_pages = 0, filters={"Platforms":[], "Release Type":[], "Genre":[]}, verify = False, date_range = (1958, 2024)):
         scrap_url = self.main_url + "/browse/game"
         scrap_url = f"{scrap_url}/?releaseYearMin={date_range[0]}&releaseMaxYear={date_range[1]}"
         for info in filters["Platforms"]:
@@ -45,7 +45,6 @@ class MetaCritic:
             scrap_url += info["added_url"]
         for info in filters["Genre"]:
             scrap_url += info["added_url"]
-        print(scrap_url + "&page=1")
         self.browser.get(scrap_url + "&page=1")
         sleep(1)
         try:
@@ -70,6 +69,7 @@ class MetaCritic:
         print("Starting scrap for: ", url)
         def getInformation(blockinfo):
             for productInfo in blockinfo:
+                game_name, game_date, rating, g_platform_concatenated, gamegenre, publisher, developer = None, None, None, None, None, None, None
                 game_name_span = productInfo.find("div", {"class": "c-finderProductCard_title"}).find_all("span")[1]
                 game_name = game_name_span.get_text(strip=True) if game_name_span else "N/A"
                 #debug(game_name)
@@ -101,7 +101,7 @@ class MetaCritic:
                             developers.append(developer)
                     developers = ",".join(developers)
                     try:
-                        publisher = current_game_info_html_bs_filtrable.find("div", {"class": "c-gameDetails_Distributor u-flexbox u-flexbox-row"}).find("span", {"class": "c-gameDetails_Distributor u-flexbox u-flexbox-row"}).get_text().strip()
+                        publisher = current_game_info_html_bs_filtrable.find("div", {"class": "c-gameDetails_Distributor u-flexbox u-flexbox-row"}).find_all("span")[1].get_text().strip()
                     except:
                         publisher = None
                     gamegenre = current_game_info_html_bs_filtrable.find("div", {"class": "c-gameDetails_sectionContainer u-flexbox u-flexbox-row u-flexbox-alignBaseline"}).find("span", {"class": "c-globalButton_label"}).get_text().strip()
@@ -154,7 +154,7 @@ class MetaCritic:
                     formated = valueName
                     for original, replacement in replacements.items():
                         formated = formated.replace(original, replacement).strip().lower()
-                    print(f"Trying to add {prefix + formated} to {filterTitle} from {valueName}")
+                    #print(f"Trying to add {prefix + formated} to {filterTitle} from {valueName}")
                     self.filters[filterTitle.strip()].append({"name":valueName.strip(), "added_url":prefix + formated, "selected":False})
 
         for filter in all_filters:
