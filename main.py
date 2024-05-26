@@ -4,7 +4,7 @@ from time import sleep
 from tkinter import *
 from tkinter.messagebox import askyesno, showerror, showinfo
 from tkinter.ttk import Progressbar
-from mainSettings import random_image_path
+from mainSettings import random_image_path, random_text_art
 from sys import path
 path.append("Scrapers")
 from threading import Thread
@@ -31,8 +31,9 @@ class ScraperUserInterface:
         self.loading_bar["value"] += 1
         from Scrapers.PriceGrabber import PriceGrabber
         self.loading_bar["value"] += 1
+        from Scrapers.SteamCharts import SteamCharts
         self.scrapers = []
-        for scraper_init in [MetaCritic, PriceCharting, PriceGrabber]:
+        for scraper_init in [MetaCritic, PriceCharting, PriceGrabber, SteamCharts]:
             try:
                 self.scrapers.append(scraper_init())
             except:
@@ -67,17 +68,6 @@ class ScraperUserInterface:
     def load_metacritic(self):
         print("Loading metacritic...")
         self.root.geometry("900x600")
-        def gen_filter_url():
-            scraper_filters = self.scraperObject("metacritic").getFilters()
-            formed_url = {}
-            for filter_name, filters_info in scraper_filters.items():
-                formed_url.update({filter_name:[]})
-                for info in filters_info:
-                    if info["checkbutton_state"].get(): # this is a IntVar object from tkinter
-                        formed_url[filter_name].append(info)
-            if all(list(formed_url.values())):
-                meta = self.scraperObject("metacritic")
-                #meta.scrap(filters=formed_url, )
         def checkbuttons(category, clear = False):
             scraper_filters = self.scraperObject("metacritic").getFilters()
             print(scraper_filters)
@@ -117,7 +107,11 @@ class ScraperUserInterface:
                 if r:
                     informational_message = Thread(target = self.update_meta_message)
                     informational_message.start()
-                    scrap_lambda = lambda: meta.scrap(filters=tmp, date_range=(int(self.min_year_filter_value.get()), int(self.max_year_filter_value.get())),limit_pages=max_pages_found)
+                    if self.price_choice_radiobutton_value.get() == 1:
+                        self.price_scraper = self.scraperObject("pricegrabber")
+                    elif self.price_choice_radiobutton_value.get() == 2:
+                        self.price_scraper = self.scraperObject("pricecharting")
+                    scrap_lambda = lambda: meta.scrap(filters=tmp, date_range=(int(self.min_year_filter_value.get()), int(self.max_year_filter_value.get())),limit_pages=max_pages_found, price_scraper_obj = 1, stats_scraper_obj = 1, hilos = self.threads_by_user.get())
                     scrap_thread = Thread(target=scrap_lambda)
                     scrapers_threads.append(scrap_thread)
                     scrap_thread.start()
@@ -140,9 +134,57 @@ class ScraperUserInterface:
         self.scraper_title = Label(self.meta_header_frame, text="MetaCritic scraper", font = ("Arial", 14, "bold"), fg = "#FFCC33")
         self.scraper_title.grid()
 
+
         # Frame that holds all the category buttons and their frames
         inner_frame = Frame(self.meta_body_frame)
         inner_frame.grid(row=1, column=0, sticky='ew')
+        # validar que existan los scrapers de price charting y price grabber para los precios
+        b = True
+        sf = []
+        sff = []
+        def set_thread_value():
+            try:
+                int(self.threads_by_user)
+            except:
+                showerror("Valor de hilos invalido")
+                self.threads_by_user.set(150)
+
+        for s in self.scrapers:
+            s_name = type(s).__name__
+            if (s_name.lower() == "pricegrabber" or s_name.lower() == "pricecharting") and b:
+                choice_price_method_frame = Frame(self.meta_body_frame)
+                choice_price_method_frame.grid(row = 1, column = 1, sticky = "n")
+                price_choice_label = Label(choice_price_method_frame, text="Scraper para obtener precio", font = ("Consolas", 9, "bold"))
+                price_choice_label.pack()
+                self.price_choice_radiobutton_value = IntVar()
+                self.price_choice_radiobutton_value.set(1)
+                price_choice_radiobutton1 = Radiobutton(choice_price_method_frame, variable=self.price_choice_radiobutton_value, text="PriceGrabber", value=1)
+                price_choice_radiobutton2 = Radiobutton(choice_price_method_frame, variable=self.price_choice_radiobutton_value, text="PriceCharting", value=2)
+                sff.append((1, price_choice_radiobutton1));sff.append((2, price_choice_radiobutton2))
+                price_choice_radiobutton1.pack()
+                price_choice_radiobutton2.pack()
+                unselect_price_choice_button = Button(choice_price_method_frame, text="Deseleccionar",command=lambda: self.price_choice_radiobutton_value.set(0))
+                unselect_price_choice_button.pack()
+                self.threads_by_user = IntVar()
+                self.threads_by_user.set(150)
+                threading_text_box_label = Label(choice_price_method_frame, text = "Maximo de hilos")
+                threading_text_box_label.pack()
+                threading_text_box = Entry(choice_price_method_frame, textvariable = self.threads_by_user)
+                threading_text_box.pack()
+                b = not b
+            if s_name.lower() == "pricegrabber":
+                sf.append(1)
+            if s_name.lower() == "pricecharting":
+                sf.append(2)
+        self.price_scraper = None
+        if not len(sf) == 2:
+            s = sf.pop()
+            if s == 2:
+                sff[1][1].config(state=DISABLED)
+            else:
+                sff[0][1].config(state=DISABLED)
+
+
 
         #self.toggle_buttons = {}
         c = 0  # Column counter for the main buttons
@@ -224,65 +266,31 @@ class ScraperUserInterface:
         label_min_year = Label(frame_minmax_year, text = f"Max year: {self.min_max_year[1]}")
         label_min_year.grid(row = 0, column = 1)
 
-
         scrap_related_frame = Frame(self.meta_body_frame)
         scrap_related_frame.grid(row = 4, column = 0, sticky = "e")
         self.save_scraped = Button(scrap_related_frame, text = "Guardar", command = save_scraped)
         self.save_scraped.grid(row = 0, column = 0)
-        self.verify_params_button = Button(scrap_related_frame, text="Verificar resultados", command = verify_results)
+        self.verify_params_button = Button(scrap_related_frame, text="Scrap", command = verify_results, bg = "green", fg = "white", font = ("Consolas", 10, "bold"))
         self.verify_params_button.grid(row=0, column=1)
-        self.scrap_button = Button(scrap_related_frame, text = "Scrap", command = gen_filter_url, bg = "green", fg = "white", font = ("Arial", 10, "bold"))
-        self.scrap_button.grid(row = 0, column = 2)
         self.informative_text_box = Text(self.meta_footer_frame, wrap = WORD)
         self.informative_text_box.pack(fill = "both", expand = True)
-        temp = """⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣄⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⠟⠋⠙⠋⠉⠙⢷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣤⣶⣶⣄⠀⠀⠀⢠⣾⣿⣁⡀⠀⠀⠀⠀⠀⠀⢑⣿⡆⠀⠀⠀⢠⣾⣿⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⣿⣿⣾⣦⡀⢠⣾⡿⣛⣛⡻⢷⣄⠀⠀⣴⣾⣿⠛⠻⠦⣄⣴⣿⣿⡿⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠉⠻⢿⣿⣿⣿⣿⣿⢿⣿⣿⣧⢼⣿⣿⣿⠿⣿⣇⢸⡟⠉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⠿⢿⣾⣿⣤⠿⠋⠀⠈⠻⢿⣿⣧⣿⠟⣬⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⣿⠃⠀⠀⢀⣴⣖⣶⠀⠀⠀⠀⠀⢀⡈⠀⠀⢘⣾⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⣿⣶⣶⣶⠿⠿⠿⠿⠷⠶⠶⠶⠛⠋⠻⣦⣤⣀⡼⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢿⡇⠀⣿⠻⢷⣤⣀⠀⠀⠀⠈⠀⠀⠀⣀⣈⡻⢿⣇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣿⡿⠛⡏⠁⠂⠘⠭⢿⣒⣒⡒⠒⠒⠊⠉⠁⠀⠀⣿⠤⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⣿⠟⠁⡄⠣⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡌⠙⠲⣤⣀⠠⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣿⣏⠀⠀⢿⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⠋⠀⠀⠀⠀⠈⠙⠚⠓⠶⢤⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣴⣿⣿⣿⣿⣶⣀⡴⠛⢷⣄⣠⣄⡀⠀⠀⠀⠀⠀⠀⠀⠐⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠳⢦⡀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣤⠴⠾⣿⣿⣿⣿⣿⠟⠛⠿⣿⣦⣄⠙⢻⣿⣷⣦⡤⠤⠶⠒⠛⠁⣠⠏⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠹⣆⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⢠⣴⡾⠏⠁⠀⠀⠀⠀⠰⠿⠟⠋⠀⠀⠀⠀⠈⠉⠛⠙⠋⠉⠉⠀⠀⠀⠀⠀⣀⡴⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢧⡀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⢀⣴⡿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠐⠒⠋⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⢷⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⢀⣾⡿⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢉⡁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⡇⠀⠀⠀
-⠀⠀⠀⠀⢄⣾⡟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⡀⢸⡁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⣧⢀⡀⠀⠀⠀⠀⠀⠀⠀⠀⣧⠀⠀⠀
-⠀⠀⠀⠀⣼⣋⣧⣶⠀⠀⠀⢀⡀⣀⣦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⡤⣼⣿⣿⣟⣤⡀⠀⠀⠀⠀⠀⠀⠘⣦⠀⠀
-⠀⠀⠀⠀⣿⡟⡇⣿⣤⣤⣴⣼⣿⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢼⣷⣦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠠⠏⣴⣿⣿⠋⠉⠉⠛⠋⡄⠂⠀⠀⠀⠀⠈⣇⠀
-⠀⠀⠀⢀⣿⣷⣜⢿⣿⣿⣿⣿⣿⣿⣟⢿⣷⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣶⠾⣿⣿⣷⠀⠀⠀⠀⠀⠀⠀⠐⠖⣠⣶⣿⣟⣿⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡀
-⠀⠀⢀⣾⠋⠻⣿⡶⠍⠙⠛⢿⣿⣿⣿⣮⡙⠿⣿⣶⣤⣄⣀⣤⣤⣤⣤⡀⢀⣈⣁⣰⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇
-⠀⠀⣾⠇⠀⠀⠘⢷⡇⠀⠀⠀⢿⣿⣿⣿⣿⣶⣼⣿⣿⣟⣻⣿⣿⣿⣿⡿⠟⠛⠁⠀⠉⠻⢿⣿⣶⣤⣴⣶⣶⣤⣶⣿⣿⣿⣿⣿⣿⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⠇
-⠀⢸⣿⠀⠀⠀⢠⡞⠀⠀⠀⠀⢾⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣟⣋⣠⣀⠀⠀⠀⠀⠀⠀⠀⢉⣛⢻⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⠀
-⠀⢸⡏⠀⠀⠀⣼⠁⠀⠀⠀⠀⣼⣿⣿⣿⣿⣿⣿⣿⣿⣿⠛⠿⡿⠛⠉⠉⠉⠁⠀⢀⠀⠀⠀⠀⠀⠉⠰⠿⠿⠛⠻⠟⠉⠁⢩⢹⣿⣿⣄⠀⠸⣆⠀⠀⠀⠀⠀⠀⠀⠀⡇⠀
-⠀⣿⢿⠀⠀⣰⠇⠀⠀⠀⠀⠀⣿⡟⢻⣿⣿⣿⣿⣿⡟⠻⢶⣤⠀⠀⠀⠀⠀⠀⠀⢸⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣸⣿⢿⣿⣿⣦⠀⢹⣆⠀⠀⠀⠀⠀⠀⠀⡇⠀
-⢀⡟⠺⠀⢐⡿⠀⠀⠀⠀⢀⣼⣿⠁⠀⢻⣿⣿⣿⣿⣿⣷⣤⣿⣤⣤⣤⣤⣶⡄⠀⠀⣿⣇⣤⣤⣀⣀⡀⠀⠀⠀⠀⠀⠈⢿⣷⣿⡾⠁⢿⣿⣷⣿⣿⡷⠀⠀⠀⠀⠀⠀⡇⠀
-⢸⡇⠀⠘⣿⡁⠀⠀⢀⣰⣿⣿⠃⠀⠀⠀⢻⣿⣽⠋⠛⢯⢿⣿⠛⠛⠋⠉⠙⠛⠲⣄⠉⠉⠁⠈⠉⠙⠛⠷⣦⣤⣤⣌⠀⠀⢸⡟⠁⠀⠀⠻⣿⣿⣿⣍⠀⠀⠀⠀⠀⠀⢧⠀
-⢸⠁⠀⠀⢹⣷⣿⣿⣿⣿⣿⠋⠀⠀⠀⠀⢸⣿⢢⠀⠂⠀⣭⣿⡀⠀⠀⠀⠀⠀⠀⢸⡉⠀⠀⠀⠀⠀⠀⠀⠉⠀⠀⠀⠀⠀⡿⠀⠀⠀⠀⠀⢹⣿⡿⠉⠀⠀⠀⠀⠀⠀⡾⠀
-⠀⠀⠀⠀⠀⠋⣿⣿⣿⡟⠁⠀⠀⠀⠀⠀⣼⣏⠈⠁⢰⠀⢨⣿⣧⣀⡀⣠⠀⠀⠀⣸⡁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⡇⠀⠀⠀⠀⠀⣸⡍⠁⠀⠀⠀⠀⠀⠀⣠⣷⠀
-⠀⠀⠀⠀⠀⠀⠙⢿⣿⡇⠀⠀⠀⠀⠀⢠⣿⠟⠇⠀⠈⠑⢦⣿⠿⠿⠿⠿⠶⢀⢀⣸⠿⣶⣦⣠⡖⠀⠀⠀⠀⠀⠀⠀⢀⣿⠀⠀⠀⠀⠀⠀⡿⠀⠀⠀⠀⠀⠀⠀⠀⠘⢻⡆
-⠀⠀⠀⠀⠀⠀⠀⠀⣼⡇⠀⠀⠀⠀⠀⣸⡗⠀⠀⠀⠀⠀⠀⠙⠷⡄⣀⠀⠀⠻⠟⠃⠀⠀⠀⠀⠤⠀⠀⠀⠀⠀⠀⠀⣾⡟⠀⠀⠀⠀⠀⢰⡇⠀⠀⠀⠀⠀⠀⠀⠀⠀⢸⡇
-⠀⠀⠀⠀⠀⠀⠀⠀⠹⠇⠀⠀⠀⠀⠀⣸⣿⠠⢰⣶⠄⠀⠀⠀⢀⣀⠀⢠⠀⠀⢠⡆⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣙⣿⠁⠀⠀⠀⠀⠀⣸⣷⠀⠀⠀⠀⠀⠀⠀⠀⠀⣾⠇"""
+        temp = random_text_art()
         self.informative_text_box.insert(END, temp)
 
     def load_pricecharting(self):
         print("Loading pricecharting...")
         ############
-        self.pricecharting_header_frame = Frame(self.main_frame)
+        self.pricecharting_header_frame = Frame(self.header_frame)
         #self.pricecharting_header_frame.pack()
-        self.pricecharting_body_frame = Frame(self.main_frame)
+        self.pricecharting_body_frame = Frame(self.body_frame)
         #self.pricecharting_body_frame.pack()
-        self.pricecharting_footer_frame = Frame(self.main_frame)
+        self.pricecharting_footer_frame = Frame(self.footer_frame)
         #self.pricecharting_footer_frame.pack()
         ############
-        button = Button(self.pricecharting_footer_frame, text = "This is a test")
-        button.grid()
+        self.button = Label(self.pricecharting_header_frame, text = "This is a test")
+        self.button.pack()
     def switch_scraper_interface(self, scraper_name):
+        print("Switch to ", scraper_name)
         meta_frames = [self.meta_header_frame, self.meta_body_frame, self.meta_footer_frame]
         pricecharting_frames = [self.pricecharting_header_frame, self.pricecharting_body_frame, self.pricecharting_footer_frame]
         # CPP templates equivalent????
@@ -307,7 +315,7 @@ class ScraperUserInterface:
                     frame.pack()
             except:
                 pass
-        elif "pricecharting" == scraper_name:
+        if "pricecharting" == scraper_name:
             try:
                 for frame in pricecharting_frames:
                     frame.pack()
@@ -344,7 +352,7 @@ class ScraperUserInterface:
         # Main header
         self.header_frame = Frame(self.main_frame)
         self.header_frame.pack()
-        self.header = Label(self.header_frame, text = "Chose a scraper to start!")
+        self.header = Label(self.header_frame, text = "Chose a scraper to start!", font = ("Arial",9,"bold"))
         self.header.pack()
         self.menu = Menu(self.root)
         self.menu_scrapers = Menu(self.main_frame, tearoff=0)
