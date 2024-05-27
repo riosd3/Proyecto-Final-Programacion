@@ -7,8 +7,8 @@ import html5lib
 from selenium import webdriver
 from pandas import DataFrame
 from statistics import mode
-from os import environ
-from os.path import join as join_path
+from os import environ, mkdir
+from os.path import join as join_path, exists as path_exists
 from FilterCheck import pagesAvailability
 from threading import Thread
 from SteamCharts import SteamCharts
@@ -237,7 +237,10 @@ class MetaCritic:
             print("Column lengths after adjustment:", lengths_after)
             
             # Step 4: Save the data to a CSV file
-            DataFrame(data).to_csv(join_path(environ["USERPROFILE"], f"Desktop/scraps/GamingG.{self.auto_s}.csv"))
+            scraps_dir = join_path(environ["USERPROFILE"], f"Documents/scraps")
+            if not path_exists(scraps_dir):
+                mkdir(scraps_dir)
+            DataFrame(data).to_csv(join_path(scraps_dir, f"GamingG.{self.auto_s}.csv"))
         except Exception as e:
             print(e, "ERROR SAVING DATA...")
         else:
